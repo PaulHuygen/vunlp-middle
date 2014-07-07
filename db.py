@@ -168,9 +168,9 @@ def registrate_uploaded_files(textpointers):
      record.phase = vunlp.SENTPAR
      record.save()
 
-def store_parse_or_log(batchid, textid, content, filtyp):
+def store_parse_log_or_timeout(batchid, textid, content, filtyp):
   """
-  Put a downloaded parse or log in the database.
+  Put a downloaded parse or log in the database or mark a timed-out item as such.
 
   @param batchid: batch-id
   @param textid: filename
@@ -196,6 +196,8 @@ def store_parse_or_log(batchid, textid, content, filtyp):
     else:
       newfilephase = vunlp.LOGREADYPAR
     record.logtext = contentstr
+  elif filtyp == 'timeout':
+    newfilephase = vunlp.TIMEOUTPAR
   else:
     raise Exception('wrong filetype keyword: ' + filtyp)
   record.phase = newfilephase
@@ -208,8 +210,10 @@ def _itemkindparameter(itemkind):
     """
     if itemkind == 'parse':
         return vunlp.PARSEREADYPAR
-    else:
+    elif itemkind == 'log':
         return vunlp.LOGREADYPAR
+    elif itemkind == 'timeout':
+        return vunlp.TIMEOUTPAR
 
 
   
@@ -226,6 +230,8 @@ def count_ready_items(batchid, itemkind):
               (text.Text.phase == _itemkindparameter(itemkind))
            )
          ).count()
+
+
 
 def get_text(batchid, textid):
   """Get the text to be parsed from the database or raise exception"""
@@ -282,8 +288,11 @@ def get_ready_items(batchid, itemkind):
         logging.debug("get {} item {}".format(itemkind, textid))
         if itemkind == 'log':
             content = zlib.decompress(record.logtext)
-        else:
+        elif itemkind == 'parse':
             content = zlib.decompress(record.outtext)
+            removelist.append(textid)
+        elif itemkind == 'timeout':
+            content = zlib.decompress(record.intext)
             removelist.append(textid)
         yield [ textid, content ]
    for textid in removelist:

@@ -278,13 +278,12 @@ def download_with_rsync(filtype):
    logging.debug("About to download " + filtype)
    if filtype == 'parse':
        remotetray = parameters.SUPER_TRAYSPATH + '/' + parameters.SUPER_OUTTRAYNAME
-   else:
+   elif filtype == 'log':
        remotetray = parameters.SUPER_TRAYSPATH + '/' + parameters.SUPER_LOGTRAYNAME 
-#   (tempf, temptray) = tempfile.mkstemp()
-#   tempdirobj = tempfile.TemporaryDirectory()
+   else:
+       remotetray = parameters.SUPER_TRAYSPATH + '/' + parameters.SUPER_TIMEOUTTRAYNAME 
    temptray = tempfile.mkdtemp()
    logging.debug("Temporary storage for " + filtype + " in :" + temptray)
-#   os.system(parms.downloadscript)
    os.system(RSYNCDOWNCOMMAND.format( user = parameters.SUPER_USER     \
                                     , host = parameters.SUPER_HOSTNAME \
                                     , remotetray = remotetray \
@@ -298,7 +297,7 @@ def download_with_rsync(filtype):
         batchid, textid = crack_internal_filename(intfilnam)
         f = open(intfilpath, 'r')
 #        db.store_parse(batchid, filnam, f)
-        db.store_parse_or_log(batchid, textid, f, filtype)
+        db.store_parse_log_or_timeout(batchid, textid, f, filtype)
         f.close()
         os.remove(intfilpath)
    except NameError as e:

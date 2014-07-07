@@ -361,8 +361,10 @@ def returnresults(batchid):
     readylogs = db.count_ready_items(batchid, 'log')
     logging.debug("Nr. of logfiles: {}".format(readylogs))
     readyparses = db.count_ready_items(batchid, 'parse')
-    logging.debug("Nr. of parses: {}".format(readylogs))
-    if (readylogs == 0) & (readyparses == 0):
+    logging.debug("Nr. of parses: {}".format(readyparses))
+    timeouts = db.count_ready_items(batchid, 'timeout')
+    logging.debug("Nr. of timeouts: {}".format(timeouts))
+    if (readylogs == 0) & (readyparses == 0) & (timeouts == 0):
        abort(404, 'no parses or logs available')
     outlist = []
     if readylogs > 0:
@@ -375,6 +377,11 @@ def returnresults(batchid):
        for textid, content in db.get_ready_items(batchid, 'parse'):
           logging.debug("Get textfile {}".format(textid))
           outlist = vunlp.add_doc_item(textid, 'parse', content, outlist)
+    if timeouts > 0:
+       logging.debug("Get timed-out files")
+       for textid, content in db.get_ready_items(batchid, 'timeout'):
+          logging.debug("Get timed-out file {}".format(textid))
+          outlist = vunlp.add_doc_item(textid, 'timeout', content, outlist)
     if request.content_type == vunlp.JSONCONTENTTYPE:
       response.set_header(str('content-type'), vunlp.JSONCONTENTTYPE)
       res = json.dumps(outlist)

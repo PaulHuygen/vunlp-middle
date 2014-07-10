@@ -36,7 +36,11 @@ import sys
 import logging
 import glob
 
+if not os.path.exists(parameters.LOCKDIR):
+   os.makedirs(parameters.LOCKDIR)
 lock = lockfile.FileLock(parameters.LOCKFILE)
+if not os.path.exists(parameters.CRONLOGDIR):
+   os.makedirs(parameters.CRONLOGDIR)
 logfil = parameters.CRONLOGFILE
 logging.basicConfig(filename = logfil, level = logging.DEBUG)
 
@@ -171,6 +175,7 @@ def send_uploads_to_supercomputer():
                                    , localtray = temptray \
                                    )  \
     )
+    logging.debug("Marking files as uploaded.")
     db.registrate_uploaded_files(sendlist)
     shutil.rmtree(temptray)
   except:
@@ -383,14 +388,15 @@ try:
     logging.debug(str(cnt) +  " texts must be uploaded.")
     if cnt > 0:
       send_uploads_to_supercomputer()
-    if shost.nr_of_files_in('parse') > 0:
-      logging.debug("Download logs and parses") 
-      download_with_rsync('log')
-      download_with_rsync('parse')
+#    if shost.nr_of_files_in('parse') > 0:
+    logging.debug("Download logs and parses") 
+    download_with_rsync('log')
+    download_with_rsync('parse')
+    download_with_rsync('timeout')
 #      download_result('log')
 #      download_result('parse')
-    logging.debug("About to find out about timeouts.")
-    mark_timeoutfiles()
+#    logging.debug("About to find out about timeouts.")
+#    mark_timeoutfiles()
 #    superco.close()
     start_alpinomanager()
   else:

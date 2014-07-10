@@ -142,9 +142,7 @@ def nr_unready_files():
             (text.Text.phase != vunlp.PARSEREADYPAR) & (text.Text.phase != vunlp.LOGPARSEREADYPAR) & (text.Text.phase != vunlp.TIMEOUTPAR)
          ).count()
   logging.debug("Number of files to submit to host: " + str(nr_unreadyfiles))
-  return text.Text.select().where(
-            (text.Text.phase != vunlp.PARSEREADYPAR) & (text.Text.phase != vunlp.LOGPARSEREADYPAR) & (text.Text.phase != vunlp.TIMEOUTPAR)
-         ).count()
+  return nr_unreadyfiles
  
 def get_files_to_be_uploaded():
   """get files that should be uploaded
@@ -164,6 +162,7 @@ def registrate_uploaded_files(textpointers):
   @param textpointers: list of tuples (batchid, textid)
   """
   for (batchid, textid) in textpointers:
+     logging.debug("Mark {} as uploaded".format(textid))
      record = _get_text_record(batchid, textid)
      record.phase = vunlp.SENTPAR
      record.save()

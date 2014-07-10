@@ -2,13 +2,22 @@
 # Parameters for vunlp package
 # Written by installscript on di jul 30 15:02:31 CEST 2013
 import os
-VUNLPHOME = os.path.expanduser('~') + '/vunlp'
+VUNLPHOME =  os.path.dirname(os.path.realpath(__file__))
+DATAHOME = os.path.join(os.path.dirname(VUNLPHOME), "data")
 # DATABASE:
-DBFILE = VUNLPHOME + "/vunlptextstore.db"
+DBFILE = DATAHOME + "/vunlptextstore.db"
 # Webservice host in local test mode:
-DEFAULT_URL = "http://localhost:8090"
-LOCKFILE =  VUNLPHOME + "/lock/cronlock"
-CRONLOGFILE = VUNLPHOME + "/log/cronlog"
+#DEFAULT_URL = "http://localhost:8090"
+DEFAULT_URL = "http://nlp.labs.vu.nl/ws/"
+LOCKDIR =  DATAHOME + "/lock"
+LOCKFILE =  LOCKDIR + "/cronlock"
+TIMDIR =  DATAHOME + "/tim"
+TIMFILE =  TIMDIR + "/crontim"
+CRONLOGDIR =  DATAHOME + "/log"
+APPLOGDIR =  DATAHOME + "/applog"
+CRONLOGFILE = CRONLOGDIR + "/cronlog"
+APPLOGFILE =  APPLOGDIR + "/app.log"
+CRONINTERVAL = 60
 # # Super-host: Access info in local test mode
 # SUPER_HOSTNAME = "localhost"
 # SUPER_USER     = "paul"

@@ -41,13 +41,17 @@ import vunlp
 #from jsonapiplugin import JSONAPIPlugin as jsonplug
 import json
 import parameters
+import subprocess
+import time
+
+
 
 import db 
 bottle.BaseRequest.MEMFILE_MAX = 4096 * 4096 
 app = Bottle()
 debug(True)
 
-
+logging.basicConfig(filename = parameters.APPLOGFILE, level = logging.DEBUG)
 
 #
 # Functions
@@ -60,13 +64,34 @@ def get_upload_or_quit(request):
    return request.files.get('upload')
 
 
+#
+# Functions to run 'cronjob'
+#
+def should_run_cronjob():
+    """Determine whether cronjob hasn't been started recently"""
+    if not os.path.isfile(parameters.TIMFILE):
+        return True
+    return (time.time()- os.path.getmtime(parameters.TIMFILE) > parameters.CRONINTERVAL)
 
+def update_crontimfile():
+    """Generate a new timestamp-file for the cronjob"""
+    open(parameters.TIMFILE, 'w').close()
+
+        
+def run_cronjob():
+    """ run cronjob as a separate process"""
+    if should_run_cronjob():
+        logging.debug("Run cronjob")
+        update_crontimfile()
+        subprocess.call(os.path.join(parameters.VUNLPHOME, 'cronjob.py'))
+        
 
 @app.route('/hello')
 def hello():
     """Look whether it works """
     logging.debug("Where would this sentence appear?")
-    return "Hello World and all that!"
+    run_cronjob()
+    return "Sapperdeflap!: {}".format(parameters.DATAHOME)
 
 
 #
@@ -76,6 +101,7 @@ def hello():
 @app.route('/parsers')
 def parserlist():
     """get list of supported parsers"""
+    run_cronjob()
     return "<html><head></head><body><p>Alpino</p> <p>Stanford</p></body></html>"
 
 #
@@ -93,6 +119,7 @@ def batchid():
     - return the id of the batch to the caller.
     Return statuscode 417 if the recipe cannot be deciphered.
     """
+    run_cronjob()
     if request.content_type == vunlp.JSONCONTENTTYPE:
        recipe = vunlp.unpack_recipe(request.json)
     else:
@@ -124,6 +151,7 @@ def batch_status(batchid):
      return 404 when the batch does not exist
      otherwise, return the state of the batch.
   """
+  run_cronjob()
   if not db.known_batchid(batchid):
     abort(404, 'Batch-id not known')
   return json.dumps(vunlp.pack_status(db.get_batchphase(batchid)))
@@ -137,7 +165,7 @@ def batch_status(batchid):
 def startbatch(batchid):
    """Start processing a batch"""
    db.set_batchphase(batchid, vunlp.RUNNINGPAR)
-#   start_cron()
+   run_cronjob()
 
 #
 # Texts
@@ -193,29 +221,29 @@ def get_file(batchid):
         3. json dict of (textid : text)
 
    """
+   run_cronjob()
    logging.debug("Receive a file.")
 #   batchid = get_valid_batch_id_from_user_or_quit()
 #   logging.debug("Got batch-id:" + str(batchid))
    if not db.known_batchid(batchid):
       abort(404, 'Batch-id not known')
 #   upload = get_upload_or_quit(request)
-#   try:
-   print("Start trying")
-   if request.content_type == vunlp.JSONCONTENTTYPE:
-        print("JSON-type")
-        print("JSON content: {}".format(request.json))
-        for (name, f) in unpack_json_upload(request.json):
-          print("Get file {}".format(name))
-          db.insert_text(batchid, name, str(f.read()))
-   else:
-       print("un-JSON-type")
-       for (name, f) in unpack_file_upload(get_upload_or_quit(request)):
-          db.insert_text(batchid, name, str(f.read()))
-#   except Exception as e:
-#     print("Error getting file upload:{} ".format(sys.exc_info()[0]))
-#     logging.error("Error getting file upload: {}".format(sys.exc_info()[0]))
-#     logging.error("Error getting file upload: " + str(e.args))
-#     abort(500, 'Error getting file upload')
+   try:
+       logging.debug("Start trying")
+       if request.content_type == vunlp.JSONCONTENTTYPE:
+           logging.debug("JSON-type")
+#           logging.debug("JSON content: {}".format(request.json))
+           for (name, f) in unpack_json_upload(request.json):
+               print("Get file {}".format(name))
+               db.insert_text(batchid, name, str(f.read()))
+       else:
+           logging.debug("un-JSON-type")
+           for (name, f) in unpack_file_upload(get_upload_or_quit(request)):
+                db.insert_text(batchid, name, str(f.read()))
+   except Exception as e:
+       logging.error("Error getting file upload:{} ".format(sys.exc_info()[0]))
+       logging.error("Error getting file upload: " + str(e.args))
+       abort(500, 'Error getting file upload')
 
 #@app.post('/batch/<batchid>/text')
 #def get_text(batchid):
@@ -245,6 +273,7 @@ def getfilestatus(batchid, textid):
     Return string with status information about a text in a batch
     Side effect: remove text if it has time-out status.
    """
+   run_cronjob()
    try:
      logging.debug("About to obtain phase of: " + batchid + "; " + textid)
      filephase = db.get_filephase(batchid, textid)
@@ -286,11 +315,13 @@ def returncontent(batchid, textid, contenttype):
 #@app.route('/batch/<batchid>/text/<textid>/text',  apply = [JSONAPIPlugin()])
 @app.route(vunlp.ROUTE_REQUEST_TEXT)
 def get_infile_back(batchid, textid):
+   run_cronjob()
    return returncontent(batchid, textid, 'text')
 
 @app.route(vunlp.ROUTE_REQUEST_LOG, method = 'HEAD')
 def getlogstatus(batchid, textid):
    """Return status 200 when logfile is available and has non-zero length"""
+   run_cronjob()
    logging.debug("Look whether " + textid + " has logcontent.")
    if not db.logfile_has_content(batchid, textid):
      abort(404, 'logfile not available or empty')
@@ -299,6 +330,7 @@ def getlogstatus(batchid, textid):
 @app.route(vunlp.ROUTE_REQUEST_LOG)
 def returnlog(batchid, textid):
    """Return parser logfile to user"""
+   run_cronjob()
    return returncontent(batchid, textid, 'log')
 
 
@@ -318,6 +350,7 @@ def returnlog(batchid, textid):
 @app.route(vunlp.ROUTE_REQUEST_PARSE)
 def returnparse(batchid, textid):
    """Return ready parses to user"""
+   run_cronjob()
    return returncontent(batchid, textid, 'parse')
 
 #   phase = db.get_filephase(batchid, textid)
@@ -340,6 +373,7 @@ def returnparse(batchid, textid):
 @app.route(vunlp.ROUTE_REQUEST_BATCHPARSES)
 def returnparses(batchid):
    """Return a tgz with ready parses to user"""
+   run_cronjob()
    if db.count_ready_parses(batchid) == 0:
        abort(404, 'no parses available')
    f = tempfile.TemporaryFile()
@@ -357,7 +391,8 @@ def returnparses(batchid):
 #@app.route('/batch/<batchid>/result')
 @app.route(vunlp.ROUTE_REQUEST_BATCHRESULT)
 def returnresults(batchid):
-    """Return the ready parses and logfiles"""
+    """Return the ready parses, logfiles and time-out"""
+    run_cronjob()
     readylogs = db.count_ready_items(batchid, 'log')
     logging.debug("Nr. of logfiles: {}".format(readylogs))
     readyparses = db.count_ready_items(batchid, 'parse')
@@ -410,5 +445,5 @@ def returnresults(batchid):
 
 
 if __name__ == "__main__":
-   logging.basicConfig(level = logging.DEBUG)
+#   logging.basicConfig(level = logging.DEBUG)
    run(app, host='localhost', port=8090, debug=True)
